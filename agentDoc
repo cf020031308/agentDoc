@@ -1,87 +1,210 @@
-#! /bin/sh
+#!/bin/sh -e
 
 
-_file=$0
-if [ -L $0 ]; then
-    _file=$(readlink $0)
-fi
-sfx=$(basename $_file)
-dir=$(cd $(dirname $_file); pwd)
-_file=$0
-
-
-function print_usage() {
+function help() {
     cat <<USAGE
-Usage:
-    search to edit  : $_file pattern
-    create and edit : $_file + fname
-    delete          : $_file - fname
-    rename          : $_file fname1 fname2
-    sync with git   : $_file =
-    help            : $_file -h
+# AGENTDOC 1                 2018-05-12                  1.0
+
+## NAME
+
+agentDoc - Document manager majored in cheatsheet and github wiki
+
+## SYNOPSIS
+
+agentDoc [*PATTERN*]  
+agentDoc [.+-=] [*DOCNAME*]  
+agentDoc [*SOURCE*] [*DOCNAME*]  
+
+## EXAMPLES
+
+\`ln -sf [agentDoc] /Documents/cheatsheet/md\`  
+\`ln -sf /Document/cheatsheet/md /usr/local/bin/cheat\`  
+  Manage cheatsheet in markdown format with command \`cheat\`
+
+\`ln -sf [agentDoc] /Documents/myproject.wiki.git/md\`  
+\`ln -sf /Document/myproject.wiki.git/md /usr/local/bin/wk\`  
+  Manage documents of github wiki in markdown format with command \`wk\`
+
+\`ln -sf [agentDoc] ~/.vim/snippets/snippets\`  
+\`ln -sf ~/.vim/snippets/snippets /usr/local/bin/snippets\`  
+  Manage vim-snippets with command \`snippets\`
+
+## DESCRIPTION
+
+Put or link agentDoc into the folder where to manage documents and name it to the suffix of the documents, such as md or txt.
+
+It's recommended to link it into \$path such as /usr/local/bin/$fn.
+
+Then the following commands are available:
+
+    edit the default doc    : $fn
+    list all docs           : $fn .
+    create a doc to edit    : $fn + docname
+    delete a doc            : $fn - docname
+    search a doc to edit    : $fn pattern
+    append a web to a doc   : $fn URL docname
+    append a file to a doc  : $fn path docname
+    append a doc to another : $fn docname1 docname2
+    sync with git           : $fn =
+    help                    : $fn -h
+
+### Usecases
+
+With different suffices and commands agentDoc becomes:
+
+1. Shortcut
+2. Todo app
+3. Cheatsheet
+4. Snippet manager
+5. Wiki, blog, diary, ...
+6. ...
+
+### Image migrating in markdown
+
+When editing documents in markdown, the addresses of pictures should be path relevant to pwd, not to the managed folder.  
+After editing, agentDoc will migrate pictures into the managed folders.
+
+## EXIT STATUS
+
+The $fn utility exits 0 on success, and >0 if an error occurs.
+
+## SEE ALSO
+
+vim(1), git(1), curl(1)
+
+## AUTHOR
+
+Written in May, 2018 by Roy <https://github.com/cf020031308/agentDoc>  
+Distributed under the terms of the BSD license.
 USAGE
 }
 
-function list_docs() {
-    sh -c "cd $dir && ls *.$sfx"
-}
 
-function sync_github() {
-    cd "$dir"
-    git pull
-    shrink_imgs
-    git commit -am ""
-    git push
-}
+IMG="_img"
+fn=$0
+if [ -L $fn ]; then
+    fn=$(readlink $fn)
+fi
+sfx=".$(basename $fn)"
+dir=$(cd $(dirname $fn); pwd)
+fn=$(basename $0)
 
-function check_reliance() {
-    $1
-}
 
 function edit() {
-    case $# in
-        0) ;;
-        1)
-            # img2local
-            sh -c "${EDITOR:-vim} ${1:%%:}"
-            # img2github
-            exit 0
-            ;;
-        *)
-            echo "$@"
-            exit 1
-            ;;
-    esac
+    vim $@
+    # migrate images
+    if [ "$sfx" = ".md" -o "$sfx" = ".markdown" ]; then
+        if [ ! -d "$dir/$IMG" ]; then
+            mkdir -p "$dir/$IMG"
+        fi
+        gw=$(sh -c "cd $dir; git remote -v 2>&- | grep 'github\.com.*\.wiki\.git (push)$' | head -n 1")
+        gw=${gw%%.wiki.git*}
+        gw=${gw##*github.com?}
+        if [-n "$gw" ]; then
+            dst="https://raw.githubusercontent.com/wiki/$gw"
+        else
+            dst="$dir/$IMG"
+        fi
+        for src in $(grep -on '!\[[^]]*\]([^)]\+)' "$_fn" | sed 's :.*( / ;s/)$//')
+        do if [ -e "${src#*/}" ]; then
+            cp "${src#*/}" "$dir/$IMG/" && sed -i '' "${src/\//s (}) ($dst/$(basename $src)) g" "$_fn"
+        fi
+        done
+    fi
 }
 
-function search_to_edit() {
-    if [ -e "$dir/$1.$sfx" ]; then
-        edit "$dir/$1.$sfx"
-    else
-        edit $(find $dir -d 1 -type f -iname "$1.$sfx")
-        edit $(find $dir -d 1 -type f -iname "*$1*.$sfx")
-        edit $(find $dir -d 1 -type f -iname "*.$sfx" -exec grep -HFi "$1" {} \;)
-        echo "Not Found."
+
+function edit_default() {
+    _fn="$dir/$fn$sfx"
+    if [ ! -e "$_fn" ]; then
+        help > "$_fn"
+    fi
+    edit "$_fn"
+}
+
+
+function list_docs() {
+    sh -c "cd $dir && ls *$sfx"
+}
+
+
+function git_sync() {
+    _pwd=$PWD
+    cd "$dir"
+    git pull || exit 1
+    # Shrink unreferenced images
+    if [ -d "$dir/$IMG" ]; then
+        for img in $(ls "$dir/$IMG" | xargs basename)
+        do grep -RF "$img)" "$dir" || rm "$dir/$IMG/$img"
+        done
+    fi
+    git add "*$sfx" "$IMG" && git commit -m "Commit by agentDoc" && git push
+    cd $_pwd
+}
+
+
+function _quit_when_ambiguous {
+    if [ $(echo "$@" | wc -l) -gt 1 ]; then
+        echo "$@" | sed "s $dir/  "
         exit 1
     fi
 }
 
+function search_to_edit() {
+    if [ -e "$dir/$1$sfx" ]; then
+        edit "$dir/$1$sfx"
+        exit 0
+    fi
+    found=$(find $dir -d 1 -type f -iname "$1$sfx")
+    _quit_when_ambiguous "$found"
+    if [ -n "$found" ]; then
+        edit "$found"
+        exit 0
+    fi
+    found=$(find $dir -d 1 -type f -iname "*$1*$sfx")
+    _quit_when_ambiguous "$found"
+    if [ -n "$found" ]; then
+        edit "$found"
+        exit 0
+    fi
+    found=$(find $dir -d 1 -type f -iname "*$sfx" -exec grep -HFi "$1" {} \;)
+    _quit_when_ambiguous "$found"
+    if [ -n "$found" ]; then
+        edit "+/$1\c" "${found%%:*}"
+        exit 0
+    fi
+    exit 1
+}
+
+
+function append() {
+    scheme=${1%%://*}
+    if [ "$scheme" = "http" -o "$scheme" = "https" ]; then
+        curl "$1" >> "$2"
+    elif [ -e "$1" ]; then
+        cat "$1" >> "$2"
+    else
+        src="$dir/$1$sfx"
+        cat "$src" >> "$2" && rm "$src"
+    fi
+}
+
+
 case $# in
-    0) list_docs;;
+    0) edit_default;;
     1)
         case $1 in
-            -h) print_usage;;
-            =) sync_github;;
+            -h) help;;
+            .) list_docs;;
+            =) git_sync;;
             *) search_to_edit $1;;
         esac;;
     2)
+        dst="$dir/$2$sfx"
         case $1 in 
-            # create and edit
-            +) edit "$dir/$2.$sfx";;
-            # delete
-            -) check_reliance "$2" && rm "$dir/$2.$sfx";;
-            # rename
-            *) check_reliance "$1" && mv "$dir/$1.$sfx" "$dir/$2.$sfx";;
+            +) edit "$dst";;
+            -) rm "$dst";;
+            *) append "$1" "$dst";;
         esac;;
-    *) print_usage; exit 1;;
+    *) help; exit 1;;
 esac
