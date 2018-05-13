@@ -105,7 +105,7 @@ function edit() {
         gw=${gw%%.wiki.git*}
         gw=${gw##*github.com?}
         if [ -n "$gw" ]; then
-            dst="https://raw.githubusercontent.com/wiki/$gw"
+            dst="https://raw.githubusercontent.com/wiki/$gw/$IMG"
         else
             dst="$dir/$IMG"
         fi
