@@ -92,6 +92,10 @@ fn=$(basename $0)
 
 function edit() {
     vim $@
+    _fn=${@:$#}
+    if [ ! -e "$_fn" ]; then
+        exit 0
+    fi
     # migrate images
     if [ "$sfx" = "md" -o "$sfx" = "markdown" ]; then
         if [ ! -d "$dir/$IMG" ]; then
@@ -105,13 +109,13 @@ function edit() {
         else
             dst="$dir/$IMG"
         fi
-        _fn=${@:$#}
         for src in $(grep -on '!\[[^]]*\]([^)]\+)' "$_fn" | sed 's :.*( / ;s/)$//')
         do if [ -e "${src#*/}" ]; then
             cp "${src#*/}" "$dir/$IMG/" && sed -i '' "${src/\//s (}) ($dst/$(basename $src)) g" "$_fn"
         fi
         done
     fi
+    exit 0
 }
 
 
@@ -155,25 +159,21 @@ function search_to_edit() {
     found="$dir/$1.$sfx"
     if [ -e "$found" ]; then
         edit "$found"
-        exit 0
     fi
     found=$(find $dir -d 1 -type f -iname "$1.$sfx")
     _quit_when_ambiguous "$found"
     if [ -n "$found" ]; then
         edit "$found"
-        exit 0
     fi
     found=$(find $dir -d 1 -type f -iname "*$1*.$sfx")
     _quit_when_ambiguous "$found"
     if [ -n "$found" ]; then
         edit "$found"
-        exit 0
     fi
     found=$(find $dir -d 1 -type f -iname "*.$sfx" -exec grep -HFi "$1" {} \;)
     _quit_when_ambiguous "$found"
     if [ -n "$found" ]; then
         edit "+/$1\c" "${found%%:*}"
-        exit 0
     fi
     exit 1
 }
