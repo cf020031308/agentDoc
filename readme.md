@@ -6,9 +6,10 @@ agentDoc - Document manager majored in cheatsheet and github wiki
 
 ## SYNOPSIS
 
+agentDoc [.=]  
 agentDoc [*PATTERN*]  
-agentDoc [.+-=] [*DOCNAME*]  
-agentDoc [*SOURCE*] [*DOCNAME*]  
+agentDoc [+-] [*DOCNAME*]  
+agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
 
 ## EXAMPLES
 
@@ -39,6 +40,7 @@ Then the following commands are available:
     search a doc to edit    : agentDoc pattern
     append a web to a doc   : agentDoc URL docname
     append a file to a doc  : agentDoc path docname
+    move a doc to external  : agentDoc docname directory
     append a doc to another : agentDoc docname1 docname2
     sync with git           : agentDoc =
     help                    : agentDoc -h
@@ -56,8 +58,10 @@ With different suffices and commands agentDoc becomes:
 
 ### Image migrating in markdown
 
-When editing documents in markdown, the addresses of pictures should be path relevant to pwd, not to the managed folder.  
+When editing documents in markdown, paths of the pictures should be relevant to pwd, not to the managed folder.  
 After editing, agentDoc will migrate pictures into the managed folders.
+
+When migrating a doc to another directory out of the managed folder, agentDoc migrates related pictures to it, too.
 
 ## EXIT STATUS
 

@@ -3,7 +3,7 @@
 
 function help() {
     cat <<USAGE
-# AGENTDOC 1                 2018-05-12                  1.0
+# AGENTDOC 1                 2018-05-16                  1.1
 
 ## NAME
 
@@ -11,9 +11,10 @@ agentDoc - Document manager majored in cheatsheet and github wiki
 
 ## SYNOPSIS
 
+agentDoc [.=]  
 agentDoc [*PATTERN*]  
-agentDoc [.+-=] [*DOCNAME*]  
-agentDoc [*SOURCE*] [*DOCNAME*]  
+agentDoc [+-] [*DOCNAME*]  
+agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
 
 ## EXAMPLES
 
@@ -44,6 +45,7 @@ Then the following commands are available:
     search a doc to edit    : $fn pattern
     append a web to a doc   : $fn URL docname
     append a file to a doc  : $fn path docname
+    move a doc to external  : $fn docname directory
     append a doc to another : $fn docname1 docname2
     sync with git           : $fn =
     help                    : $fn -h
@@ -61,8 +63,10 @@ With different suffices and commands agentDoc becomes:
 
 ### Image migrating in markdown
 
-When editing documents in markdown, the addresses of pictures should be path relevant to pwd, not to the managed folder.  
+When editing documents in markdown, paths of the pictures should be relevant to pwd, not to the managed folder.  
 After editing, agentDoc will migrate pictures into the managed folders.
+
+When migrating a doc to another directory out of the managed folder, agentDoc migrates related pictures to it, too.
 
 ## EXIT STATUS
 
@@ -90,30 +94,46 @@ dir=$(cd $(dirname $fn); pwd)
 fn=$(basename $0)
 
 
+function _md_img_dir() {
+    if [ "$sfx" = "md" -o "$sfx" = "markdown" ]; then
+        local="$dir/$IMG"
+        if [ ! -d "$local" ]; then
+            mkdir -p "$local"
+        fi
+        remote=$(sh -c "cd $dir; git remote -v 2>&- | grep 'github\.com.*\.wiki\.git (push)$' | head -n 1")
+        remote=${remote%%.wiki.git*}
+        remote=${remote##*github.com?}
+        if [ -n "$remote" ]; then
+            echo "https://raw.githubusercontent.com/wiki/$remote/$IMG"
+        else
+            echo "./$IMG"
+        fi
+    fi
+}
+
+
+function _md_ln_srcs() {
+    grep -on '!\[[^]]*\]([^)]\+)' "$1" | sed 's :.*( / ;s/)$//'
+}
+
+
 function edit() {
     vim $@
     _fn=${@:$#}
-    if [ ! -e "$_fn" ]; then
-        exit 0
-    fi
     # migrate images
-    if [ "$sfx" = "md" -o "$sfx" = "markdown" ]; then
-        if [ ! -d "$dir/$IMG" ]; then
-            mkdir -p "$dir/$IMG"
+    if [ -e "$_fn" ]; then
+        imgs=$(_md_img_dir)
+        if [ -n "$imgs" ]; then
+            rep=""
+            for ln_src in $(_md_ln_srcs "$_fn")
+            do if [ -e "${ln_src#*/}" ]; then
+                cp "${ln_src#*/}" "$dir/$IMG/" && rep="$rep${ln_src/\//s (}) ($imgs/$(basename $ln_src)) g;"
+            fi
+            done
+            if [ -n "$rep" ]; then
+                sed -i '' "$rep" "$_fn"
+            fi
         fi
-        gw=$(sh -c "cd $dir; git remote -v 2>&- | grep 'github\.com.*\.wiki\.git (push)$' | head -n 1")
-        gw=${gw%%.wiki.git*}
-        gw=${gw##*github.com?}
-        if [ -n "$gw" ]; then
-            dst="https://raw.githubusercontent.com/wiki/$gw/$IMG"
-        else
-            dst="$dir/$IMG"
-        fi
-        for src in $(grep -on '!\[[^]]*\]([^)]\+)' "$_fn" | sed 's :.*( / ;s/)$//')
-        do if [ -e "${src#*/}" ]; then
-            cp "${src#*/}" "$dir/$IMG/" && sed -i '' "${src/\//s (}) ($dst/$(basename $src)) g" "$_fn"
-        fi
-        done
     fi
     exit 0
 }
@@ -140,7 +160,7 @@ function git_sync() {
     # Shrink unreferenced images
     if [ -d "$dir/$IMG" ]; then
         for img in $(ls "$dir/$IMG" | xargs basename)
-        do grep -RF "$img)" "$dir" || rm "$dir/$IMG/$img"
+        do grep -RF "$img)" "$dir" || rm "$dir/$IMG/$img" > /dev/null
         done
     fi
     git add "*.$sfx" "$IMG" "$sfx" && git commit -m "Commit by agentDoc" && git push
@@ -154,6 +174,7 @@ function _quit_when_ambiguous {
         exit 1
     fi
 }
+
 
 function search_to_edit() {
     found="$dir/$1.$sfx"
@@ -179,15 +200,40 @@ function search_to_edit() {
 }
 
 
-function append() {
+function migrate() {
     scheme=${1%%://*}
+    src="$dir/$1.$sfx"
+    dst="$dir/$2.$sfx"
     if [ "$scheme" = "http" -o "$scheme" = "https" ]; then
-        curl "$1" >> "$2"
+        curl "$1" >> "$dst"
     elif [ -e "$1" ]; then
-        cat "$1" >> "$2"
+        cat "$1" >> "$dst"
+    elif [ ! -e "$src" ]; then
+        echo "$1 not found."
+        exit 1
+    elif [ -d "$2" ]; then
+        imgs=$(_md_img_dir)
+        if [ -n "$imgs" ]; then
+            local="$2/$IMG"
+            if [ ! -d "$local" ]; then
+                mkdir -p "$local"
+            fi
+            rep=""
+            for ln_src in $(_md_ln_srcs "$src")
+            do
+                img="$dir/$IMG/"$(basename "$ln_src")
+                if [ -e "$img" ]; then
+                    cp "$img" "$local" && rep="$rep${ln_src/\//s (}) (./$IMG/$(basename $ln_src)) g;"
+                fi
+            done
+            if [ -n "$rep" ]; then
+                sed "$rep" "$src" > "$2/$1.$sfx"
+                exit 0
+            fi
+        fi
+        cp "$src" "$2/"
     else
-        src="$dir/$1.$sfx"
-        cat "$src" >> "$2" && rm "$src"
+        cat "$src" >> "$dst" && rm "$src"
     fi
 }
 
@@ -202,11 +248,10 @@ case $# in
             *) search_to_edit $1;;
         esac;;
     2)
-        dst="$dir/$2.$sfx"
         case $1 in 
-            +) edit "$dst";;
-            -) rm "$dst";;
-            *) append "$1" "$dst";;
+            +) edit "$dir/$2.$sfx";;
+            -) rm "$dir/$2.$sfx";;
+            *) migrate "$1" "$2";;
         esac;;
     *) help; exit 1;;
 esac
