@@ -160,7 +160,7 @@ function git_sync() {
     # Shrink unreferenced images
     if [ -d "$dir/$IMG" ]; then
         for img in $(ls "$dir/$IMG" | xargs basename)
-        do grep -RF "$img)" "$dir" || rm "$dir/$IMG/$img" > /dev/null
+        do grep -RF "$img)" "$dir" > /dev/null || rm "$dir/$IMG/$img"
         done
     fi
     git add "*.$sfx" "$IMG" "$sfx" && git commit -m "Commit by agentDoc" && git push
@@ -227,11 +227,11 @@ function migrate() {
                 fi
             done
             if [ -n "$rep" ]; then
-                sed "$rep" "$src" > "$2/$1.$sfx"
+                sed "$rep" "$src" >> "$2/$1.$sfx"
                 exit 0
             fi
         fi
-        cp "$src" "$2/"
+        cat "$src" >> "$2/$1.$sfx"
     else
         cat "$src" >> "$dst" && rm "$src"
     fi
