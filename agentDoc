@@ -149,7 +149,7 @@ function edit_default() {
 
 
 function list_docs() {
-    sh -c "cd $dir && ls *.$sfx"
+    sh -c "cd $dir && ls *.$sfx && git status . 2>&-"
 }
 
 
