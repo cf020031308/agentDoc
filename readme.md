@@ -1,4 +1,4 @@
-# AGENTDOC 1                 2018-05-12                  1.0
+# AGENTDOC 1                 2018-06-12                  1.2
 
 ## NAME
 
@@ -13,21 +13,23 @@ agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
 
 ## EXAMPLES
 
-`ln -sf [agentDoc] /Documents/cheatsheet/md`  
+`ln -sf agentDoc /Documents/cheatsheet/.md`  
 `ln -sf /Document/cheatsheet/md /usr/local/bin/cheat`  
   Manage cheatsheet in markdown format with command `cheat`
 
-`ln -sf [agentDoc] /Documents/myproject.wiki.git/md`  
+`cp agentDoc /Documents/myproject.wiki.git/md`  
 `ln -sf /Document/myproject.wiki.git/md /usr/local/bin/wk`  
   Manage documents of github wiki in markdown format with command `wk`
 
-`ln -sf [agentDoc] ~/.vim/snippets/snippets`  
+`ln -sf agentDoc ~/.vim/snippets/snippets`  
 `ln -sf ~/.vim/snippets/snippets /usr/local/bin/snippets`  
   Manage vim-snippets with command `snippets`
 
 ## DESCRIPTION
 
 Put or link agentDoc into the folder where to manage documents and name it to the suffix of the documents, such as md or txt.
+
+You can also hide your agentDoc by naming it as a hidden file, such as .md or .txt. It's the same.
 
 It's recommended to link it into $path such as /usr/local/bin/agentDoc.
 
