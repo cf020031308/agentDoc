@@ -1,4 +1,4 @@
-# AGENTDOC 1                 2018-06-12                  1.2
+# AGENTDOC 1                 2018-06-12                  1.3
 
 ## NAME
 
@@ -42,9 +42,9 @@ Then the following commands are available:
     search a doc to edit    : agentDoc pattern
     append a web to a doc   : agentDoc URL docname
     append a file to a doc  : agentDoc path docname
-    move a doc to external  : agentDoc docname directory
+    copy a doc to external  : agentDoc docname directory
     append a doc to another : agentDoc docname1 docname2
-    sync with git           : agentDoc =
+    sync with git           : agentDoc = [comment]
     help                    : agentDoc -h
 
 ### Usecases
