@@ -3,7 +3,7 @@
 
 function help() {
     cat <<USAGE
-# AGENTDOC 1                 2018-06-12                  1.2
+# AGENTDOC 1                 2018-06-12                  1.3
 
 ## NAME
 
@@ -47,9 +47,9 @@ Then the following commands are available:
     search a doc to edit    : $fn pattern
     append a web to a doc   : $fn URL docname
     append a file to a doc  : $fn path docname
-    move a doc to external  : $fn docname directory
+    copy a doc to external  : $fn docname directory
     append a doc to another : $fn docname1 docname2
-    sync with git           : $fn =
+    sync with git           : $fn = [comment]
     help                    : $fn -h
 
 ### Usecases
@@ -130,7 +130,7 @@ function edit() {
             rep=""
             for ln_src in $(_md_ln_srcs "$_fn")
             do if [ -e "${ln_src#*/}" ]; then
-                cp "${ln_src#*/}" "$dir/$IMG/" && rep="$rep${ln_src/\//s (}) ($imgs/$(basename $ln_src)) g;"
+                cp "${ln_src#*/}" "$dir/$IMG/" 2>&- && rep="$rep${ln_src/\//s (}) ($imgs/$(basename $ln_src)) g;"
             fi
             done
             if [ -n "$rep" ]; then
@@ -166,7 +166,7 @@ function git_sync() {
         do grep -RF "$img)" "$dir" > /dev/null || rm "$dir/$IMG/$img"
         done
     fi
-    git add "*.$sfx" "$IMG" "$sfx" && git commit -m "Commit by agentDoc" && git push
+    git add "*.$sfx" "$IMG" "$sfx" && git commit -m "${1:-Commit by cf020031308/agentDoc}" && git push
     cd $_pwd
 }
 
@@ -236,7 +236,7 @@ function migrate() {
         fi
         cat "$src" >> "$2/$1.$sfx"
     else
-        cat "$src" >> "$dst" && rm "$src"
+        cat "$src" >> "$dst"
     fi
 }
 
@@ -254,6 +254,7 @@ case $# in
         case $1 in 
             +) edit "$dir/$2.$sfx";;
             -) rm "$dir/$2.$sfx";;
+            =) git_sync "$2";;
             *) migrate "$1" "$2";;
         esac;;
     *) help; exit 1;;
