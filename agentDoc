@@ -165,8 +165,9 @@ function git_sync() {
         for img in $(ls "$dir/$IMG" | xargs basename)
         do grep -RF "$img)" "$dir" > /dev/null || rm "$dir/$IMG/$img"
         done
+        git add "$IMG"
     fi
-    git add "*.$sfx" "$IMG" "$sfx" && git commit -m "${1:-Commit by cf020031308/agentDoc}" && git push
+    git add "*.$sfx" && git commit -m "${1:-Commit by cf020031308/agentDoc}" && git push
     cd $_pwd
 }
 
