@@ -3,7 +3,7 @@
 
 function help() {
     cat <<USAGE
-# AGENTDOC 1                 2018-06-12                  1.3
+# AGENTDOC 1                 2018-06-22                  1.4
 
 ## NAME
 
@@ -130,11 +130,11 @@ function edit() {
             rep=""
             for ln_src in $(_md_ln_srcs "$_fn")
             do if [ -e "${ln_src#*/}" ]; then
-                cp "${ln_src#*/}" "$dir/$IMG/" 2>&- && rep="$rep${ln_src/\//s (}) ($imgs/$(basename $ln_src)) g;"
+                cp "${ln_src#*/}" "$dir/$IMG/" 2>&- && rep="$rep -e ${ln_src/\//s|(})|($imgs/$(basename $ln_src))|g;"
             fi
             done
             if [ -n "$rep" ]; then
-                sed -i '' "$rep" "$_fn"
+                sed -i '' $rep "$_fn"
             fi
         fi
     fi
@@ -227,11 +227,11 @@ function migrate() {
             do
                 img="$dir/$IMG/"$(basename "$ln_src")
                 if [ -e "$img" ]; then
-                    cp "$img" "$local" && rep="$rep${ln_src/\//s (}) (./$IMG/$(basename $ln_src)) g;"
+                    cp "$img" "$local" && rep="$rep -e ${ln_src/\//s|(})|(./$IMG/$(basename $ln_src))|g;"
                 fi
             done
             if [ -n "$rep" ]; then
-                sed "$rep" "$src" >> "$2/$1.$sfx"
+                sed $rep "$src" >> "$2/$1.$sfx"
                 exit 0
             fi
         fi
