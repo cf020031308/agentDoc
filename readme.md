@@ -1,8 +1,8 @@
-# AGENTDOC 1                 2018-06-22                  1.4
+# AGENTDOC 1                 2019-04-13                  2.0
 
 ## NAME
 
-agentDoc - Document manager majored in cheatsheet and github wiki
+agentDoc - An agent which makes documents easy to be accessed, modified and searched.
 
 ## SYNOPSIS
 
@@ -11,7 +11,37 @@ agentDoc [*PATTERN*]
 agentDoc [+-] [*DOCNAME*]  
 agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
 
-## EXAMPLES
+## COMMANDS
+
+    agentDoc
+        edit the default doc
+    agentDoc .
+        list all docs
+    agentDoc + docname
+        create a doc to edit
+    agentDoc - docname
+        delete a doc
+    agentDoc pattern
+        search a doc to edit
+    agentDoc URL/filepath1/docname1 path2/docname2
+        append a page/file/doc to an internal doc or an external file, or output it to a directory
+    agentDoc = [comment]
+        sync with git
+    agentDoc -h
+        help
+
+### About Search
+
+When searching, agentDoc looks at the filenames and contents to pick the only file with its name or content exactly or partially matching the pattern, then opens it with `vim` for editing.
+In every search phase if the result contains multiple files, agentDoc prints them and quit immediately.
+
+## INSTALLATION
+
+Put or link agentDoc as a copy into the folder where you hope to manage documents. Then name the copy as the extension of the managed documents, such as md or txt. It can also be hidden by being named as .md, .txt, etc.
+
+And It's recommended to link the copy into $path such as /usr/local/bin/agentDoc to make it convenient to use.
+
+### Installation Examples
 
 `ln -sf agentDoc /Documents/cheatsheet/.md`  
 `ln -sf /Document/cheatsheet/md /usr/local/bin/cheat`  
@@ -25,31 +55,9 @@ agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
 `ln -sf ~/.vim/snippets/snippets /usr/local/bin/snippets`  
   Manage vim-snippets with command `snippets`
 
-## DESCRIPTION
-
-Put or link agentDoc into the folder where to manage documents and name it to the suffix of the documents, such as md or txt.
-
-You can also hide your agentDoc by naming it as a hidden file, such as .md or .txt. It's the same.
-
-It's recommended to link it into $path such as /usr/local/bin/agentDoc.
-
-Then the following commands are available:
-
-    edit the default doc    : agentDoc
-    list all docs           : agentDoc .
-    create a doc to edit    : agentDoc + docname
-    delete a doc            : agentDoc - docname
-    search a doc to edit    : agentDoc pattern
-    append a web to a doc   : agentDoc URL docname
-    append a file to a doc  : agentDoc path docname
-    copy a doc to external  : agentDoc docname directory
-    append a doc to another : agentDoc docname1 docname2
-    sync with git           : agentDoc = [comment]
-    help                    : agentDoc -h
-
 ### Usecases
 
-With different suffices and commands agentDoc becomes:
+With different extensions and aliases agentDoc becomes:
 
 1. Shortcut
 2. Todo app
@@ -58,12 +66,19 @@ With different suffices and commands agentDoc becomes:
 5. Wiki, blog, diary, ...
 6. ...
 
-### Image migrating in markdown
+## SPECIALITIES
 
-When editing documents in markdown, paths of the pictures should be relevant to pwd, not to the managed folder.  
-After editing, agentDoc will migrate pictures into the managed folders.
+agentDoc leverages the power of Github <https://github.com> and markdown <https://guides.github.com/features/mastering-markdown/>.
 
-When migrating a doc to another directory out of the managed folder, agentDoc migrates related pictures to it, too.
+1. Properly fix referenced URLs when getting a remote markdown file
+2. Automatically manage images referenced in a local markdown file
+    1. When editing, you can reference an image relative to your working directory (PWD);
+    2. When appending, images referenced in the source file will be copied to the destination folder, and links converted as well.
+    3. When syncing, images in the managed folder which are not referenced will be removed before pushing.
+3. Friendly with Github
+    1. Readme. When creating a doc with command `agentDoc + not-exist-dirname/` or output a doc with command `agentDoc docname not-exist-dirname/`, agentDoc knows you hope to create a new folder to keep the doc and all its assets within it so it just does, creating the new folder and name your doc as "not-exist-dirname/readme.agentDoc".
+    2. URLs of raw. When getting a remote file from Github Code or Github Wiki, agentDoc guesses the URL of the raw file according to the given URL.
+    3. Issue links. When getting a remote file from Github, GFM Issue links will be converted to normal links.
 
 ## EXIT STATUS
 
@@ -75,5 +90,5 @@ vim(1), git(1), curl(1)
 
 ## AUTHOR
 
-Written in May, 2018 by Roy <https://github.com/cf020031308/agentDoc>  
+Written first in May, 2018 by Roy <https://github.com/cf020031308/agentDoc>  
 Distributed under the terms of the BSD license.

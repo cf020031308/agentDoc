@@ -1,13 +1,13 @@
-#!/bin/sh -
+#!/bin/bash -
 
 
 function help() {
     cat <<USAGE
-# AGENTDOC 1                 2018-06-22                  1.4
+# AGENTDOC 1                 2019-04-13                  2.0
 
 ## NAME
 
-agentDoc - Document manager majored in cheatsheet and github wiki
+agentDoc - An agent which makes documents easy to be accessed, modified and searched.
 
 ## SYNOPSIS
 
@@ -16,7 +16,37 @@ agentDoc [*PATTERN*]
 agentDoc [+-] [*DOCNAME*]  
 agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
 
-## EXAMPLES
+## COMMANDS
+
+    $ad
+        edit the default doc
+    $ad .
+        list all docs
+    $ad + docname
+        create a doc to edit
+    $ad - docname
+        delete a doc
+    $ad pattern
+        search a doc to edit
+    $ad URL/filepath1/docname1 path2/docname2
+        append a page/file/doc to an internal doc or an external file, or output it to a directory
+    $ad = [comment]
+        sync with git
+    $ad -h
+        help
+
+### About Search
+
+When searching, $ad looks at the filenames and contents to pick the only file with its name or content exactly or partially matching the pattern, then opens it with \`vim\` for editing.
+In every search phase if the result contains multiple files, $ad prints them and quit immediately.
+
+## INSTALLATION
+
+Put or link agentDoc as a copy into the folder where you hope to manage documents. Then name the copy as the extension of the managed documents, such as md or txt. It can also be hidden by being named as .md, .txt, etc.
+
+And It's recommended to link the copy into \$path such as /usr/local/bin/$ad to make it convenient to use.
+
+### Installation Examples
 
 \`ln -sf agentDoc /Documents/cheatsheet/.md\`  
 \`ln -sf /Document/cheatsheet/md /usr/local/bin/cheat\`  
@@ -30,31 +60,9 @@ agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
 \`ln -sf ~/.vim/snippets/snippets /usr/local/bin/snippets\`  
   Manage vim-snippets with command \`snippets\`
 
-## DESCRIPTION
-
-Put or link agentDoc into the folder where to manage documents and name it to the suffix of the documents, such as md or txt.
-
-You can also hide your agentDoc by naming it as a hidden file, such as .md or .txt. It's the same.
-
-It's recommended to link it into \$path such as /usr/local/bin/$fn.
-
-Then the following commands are available:
-
-    edit the default doc    : $fn
-    list all docs           : $fn .
-    create a doc to edit    : $fn + docname
-    delete a doc            : $fn - docname
-    search a doc to edit    : $fn pattern
-    append a web to a doc   : $fn URL docname
-    append a file to a doc  : $fn path docname
-    copy a doc to external  : $fn docname directory
-    append a doc to another : $fn docname1 docname2
-    sync with git           : $fn = [comment]
-    help                    : $fn -h
-
 ### Usecases
 
-With different suffices and commands agentDoc becomes:
+With different extensions and aliases agentDoc becomes:
 
 1. Shortcut
 2. Todo app
@@ -63,16 +71,23 @@ With different suffices and commands agentDoc becomes:
 5. Wiki, blog, diary, ...
 6. ...
 
-### Image migrating in markdown
+## SPECIALITIES
 
-When editing documents in markdown, paths of the pictures should be relevant to pwd, not to the managed folder.  
-After editing, agentDoc will migrate pictures into the managed folders.
+$ad leverages the power of Github <https://github.com> and markdown <https://guides.github.com/features/mastering-markdown/>.
 
-When migrating a doc to another directory out of the managed folder, agentDoc migrates related pictures to it, too.
+1. Properly fix referenced URLs when getting a remote markdown file
+2. Automatically manage images referenced in a local markdown file
+    1. When editing, you can reference an image relative to your working directory (PWD);
+    2. When appending, images referenced in the source file will be copied to the destination folder, and links converted as well.
+    3. When syncing, images in the managed folder which are not referenced will be removed before pushing.
+3. Friendly with Github
+    1. Readme. When creating a doc with command \`$ad + not-exist-dirname/\` or output a doc with command \`$ad docname not-exist-dirname/\`, $ad knows you hope to create a new folder to keep the doc and all its assets within it so it just does, creating the new folder and name your doc as "not-exist-dirname/readme.$ext".
+    2. URLs of raw. When getting a remote file from Github Code or Github Wiki, $ad guesses the URL of the raw file according to the given URL.
+    3. Issue links. When getting a remote file from Github, GFM Issue links will be converted to normal links.
 
 ## EXIT STATUS
 
-The $fn utility exits 0 on success, and >0 if an error occurs.
+The $ad utility exits 0 on success, and >0 if an error occurs.
 
 ## SEE ALSO
 
@@ -80,164 +95,224 @@ vim(1), git(1), curl(1)
 
 ## AUTHOR
 
-Written in May, 2018 by Roy <https://github.com/cf020031308/agentDoc>  
+Written first in May, 2018 by Roy <https://github.com/cf020031308/agentDoc>  
 Distributed under the terms of the BSD license.
 USAGE
 }
 
 
-IMG="_img"
-fn=$0
-if [ -L $fn ]; then
-    fn=$(readlink $fn)
+DEFAULTFN="readme"
+ad="$(basename $0)"
+fp="$0"
+if [ -L "$fp" ]; then
+    fp="$(readlink $fp)"
 fi
-sfx="$(basename $fn)"
-sfx="${sfx#.}"
-dir=$(cd $(dirname $fn); pwd)
-fn=$(basename $0)
+ext="$(basename $fp)"
+ext="${ext#.}"
+base="$(cd $(dirname $fp); pwd)"
 
 
-function _md_img_dir() {
-    if [ "$sfx" = "md" -o "$sfx" = "markdown" ]; then
-        local="$dir/$IMG"
-        if [ ! -d "$local" ]; then
-            mkdir -p "$local"
-        fi
-        remote=$(sh -c "cd $dir; git remote -v 2>&- | grep 'github\.com.*\.wiki\.git (push)$' | head -n 1")
-        remote=${remote%%.wiki.git*}
-        remote=${remote##*github.com?}
-        if [ -n "$remote" ]; then
-            echo "https://raw.githubusercontent.com/wiki/$remote/$IMG"
-        else
-            echo "./$IMG"
-        fi
-    fi
+function _ismd() {
+    test "$ext" = "md" -o "$ext" = "markdown"
 }
 
 
-function _md_ln_srcs() {
-    grep -on '!\[[^]]*\]([^)]\+)' "$1" | sed 's :.*( / ;s/)$//'
+function _mdimg_redir() {
+    # Migrate images of markdown file from one directory to another and convert its links
+    # Usage: _mdimg_redir src_file dst_file [src_dir]
+    dstdir=$(dirname $2)
+    srcdir=${3:-$(dirname $1)}
+    rpl=()
+    i=0
+    ifs="$IFS"
+    IFS="${IFS:(-1)}"
+    for mt in $(grep -on '!\[[^]]*\]([^)]\+)' "$1" | grep -v '(https\{0,1\}://'); do
+        lineno=${mt%%:*}
+        imgpath=$(expr "$mt" : "[0-9]\{1,\}:!\[[^]]*\](\([^)]\{0,\}\))")
+        if [ "${imgpath:0:1}" != "/" ]; then
+            realimgpath="$srcdir/$imgpath"
+        else
+            realimgpath="$imgpath"
+        fi
+        if [ -e "$realimgpath" ]; then
+            imgname="$(basename $imgpath)"
+            if [ "$imgpath" != "$imgname" ]; then
+                rpl[i++]="-e ${lineno}s ]($imgpath) ]($imgname) "
+            fi
+            if [ ! "$realimgpath" -ef "$dstdir/$imgname" ]; then
+                cp "$realimgpath" "$dstdir/$imgname"
+            fi
+        fi
+    done
+    IFS="$ifs"
+    if [ ! "$1" -ef "$2" ]; then
+        test $i -eq 0 && cat "$1" >> "$2" || sed "${rpl[@]}" "$1" >> "$2"
+    elif [ $i -gt 0 ]; then
+        sed -i "" "${rpl[@]}" "$1"
+    fi
 }
 
 
 function edit() {
-    vim $@
-    _fn=${@:$#}
-    # migrate images
-    if [ -e "$_fn" ]; then
-        imgs=$(_md_img_dir)
-        if [ -n "$imgs" ]; then
-            rep=""
-            for ln_src in $(_md_ln_srcs "$_fn")
-            do if [ -e "${ln_src#*/}" ]; then
-                cp "${ln_src#*/}" "$dir/$IMG/" 2>&- && rep="$rep -e ${ln_src/\//s|(})|($imgs/$(basename $ln_src))|g;"
+    fn="${@:$#}"
+    if [ -e "$fn" ]; then
+        vim $@
+        _ismd && _mdimg_redir "$fn" "$fn" "$PWD"
+        exit 0
+    fi
+}
+
+
+function append() {
+    if [ -d "$2" ]; then
+        dst="${2}/${1}.$ext"
+    elif [ -f "$2" ]; then
+        dst="$2"
+    elif [ "${2/\//}" = "$2" ]; then
+        dst="$base/$2.$ext"
+    else
+        if [ "${2:(-1)}" != "/" ]; then
+            dst="$2.$ext"
+        elif [ "${2/\//}" != "${2//\//}" ]; then
+            dst="${2}${DEFAULTFN:-$1}.$ext"
+        else
+            dst="$base/$2${DEFAULTFN:-$1}.$ext"
+        fi
+        mkdir -p "$(dirname $dst)"
+    fi
+
+    host=$(expr "$1" : "\(https\{0,1\}://[^/]*\)/")
+    if [ -n "$host" ]; then
+        src="$1"
+        rpl=""
+        if _ismd; then
+            if [ "$host" = "https://github.com" ]; then
+                # Guess markdown file's real URL if it's not given directly
+                case "$src" in
+                    */blob/*)
+                        src="${src/\/blob\///raw/}"
+                        dir="$(dirname $src)/";;
+                    */tree/*)
+                        src="${src/\/tree\///raw/}/${DEFAULTFN:-readme}.$ext"
+                        dir="$(dirname $src)/";;
+                    */wiki/*)
+                        dir="$(dirname $src)/"
+                        src="${src#https://github.com/}"
+                        src="https://raw.githubusercontent.com/wiki/${src/\/wiki\///}.$ext";;
+                    */wiki)
+                        dir="$src/"
+                        src="${src#https://github.com/}"
+                        src="https://raw.githubusercontent.com/wiki/${src%*/wiki}/Home.$ext";;
+                    *)
+                        src="$src/raw/master/${DEFAULTFN:-readme}.$ext"
+                        dir="$(dirname $src)/"
+                esac
+                # Convert Issue links for Github: https://guides.github.com/features/mastering-markdown/
+                rpl="s [[:<:]]([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)#([0-9]+) [&](https://github.com/\1/issues/\2) g"
             fi
-            done
-            if [ -n "$rep" ]; then
-                sed -i '' $rep "$_fn"
-            fi
+            # Convert links from relative to absolute
+            rpl="s \]\(((https?://[^)]+)|(/[^)]+)|([^)]+))\) ](\2))$host\3))$dir\4) g
+            s ))$dir\) ) g
+            s ))$host\) ) g
+            s ]\(\)\) ]( g
+            $rpl"
+        fi
+        curl -L "$src" | sed -E "$rpl" >> "$dst"
+    else
+        if [ -f "$1" ]; then
+            src="$1"
+        elif [ -f "$base/$1.$ext" ]; then
+            src="$base/$1.$ext"
+        elif _ismd && [ -f "$base/$1/${DEFAULTFN:-$1}.$ext" ]; then
+            src="$base/$1/${DEFAULTFN:-$1}.$ext"
+        else
+            echo "$1 not found."
+            exit 1
+        fi
+        if _ismd; then
+            _mdimg_redir "$src" "$dst"
+        else
+            cat "$src" >> "$dst"
         fi
     fi
-    exit 0
 }
 
 
 function edit_default() {
-    _fn="$dir/$fn.$sfx"
-    if [ ! -e "$_fn" ]; then
-        help > "$_fn"
+    fn="$base/$ad.$ext"
+    if [ ! -e "$fn" ]; then
+        help > "$fn"
     fi
-    edit "$_fn"
+    edit "$fn"
 }
 
 
 function list_docs() {
-    sh -c "cd $dir && ls *.$sfx && git status . 2>&-"
+    cd "$base" && ls *.$ext && git status . 2>&-
 }
 
 
 function git_sync() {
-    _pwd=$PWD
-    cd "$dir"
+    # Remove all unreferenced assets
+    _ismd && for asset in $(find "$base" -maxdepth 2 -type f \! -path "$base/.*" \! -name "*.$ext"); do
+        grep -RF "]($(basename $asset))" "$base" > /dev/null || rm "$asset"
+    done
+    cd "$base"
     git pull || exit 1
-    # Shrink unreferenced images
-    if [ -d "$dir/$IMG" ]; then
-        for img in $(ls "$dir/$IMG" | xargs basename)
-        do grep -RF "$img)" "$dir" > /dev/null || rm "$dir/$IMG/$img"
-        done
-        git add "$IMG"
-    fi
-    git add "*.$sfx" && git commit -m "${1:-Commit by cf020031308/agentDoc}" && git push
-    cd $_pwd
-}
-
-
-function _quit_when_ambiguous {
-    if [ $(echo "$@" | wc -l) -gt 1 ]; then
-        echo "$@" | sed "s $dir/  "
-        exit 1
-    fi
+    git add . && git commit -m "${1:-Commit by cf020031308/agentDoc}" && git push
 }
 
 
 function search_to_edit() {
-    found="$dir/$1.$sfx"
-    if [ -e "$found" ]; then
-        edit "$found"
-    fi
-    found=$(find $dir -d 1 -type f -iname "$1.$sfx")
-    _quit_when_ambiguous "$found"
-    if [ -n "$found" ]; then
-        edit "$found"
-    fi
-    found=$(find $dir -d 1 -type f -iname "*$1*.$sfx")
-    _quit_when_ambiguous "$found"
-    if [ -n "$found" ]; then
-        edit "$found"
-    fi
-    found=$(find $dir -d 1 -type f -iname "*.$sfx" -exec grep -HFi "$1" {} \;)
-    _quit_when_ambiguous "$found"
-    if [ -n "$found" ]; then
-        edit "+/$1\c" "${found%%:*}"
-    fi
+    function _quit_if_ambiguous {
+        if [ $(echo "$@" | wc -l) -gt 1 ]; then
+            echo "$@" | sed "s $base/  "
+            exit 1
+        fi
+    }
+
+    # 1. If it exactly matches the file name, edit the file.
+    edit "$base/$1.$ext"
+    _ismd && edit "$base/$1/${DEFAULTFN:-$1}.$ext"
+
+    # 2. Elseif it matches one file name by ignoring the lettercase, edit the only file.
+    found=$(find $base -d 1 -type f -iname "$1.$ext"; _ismd && find $base -d 2 -type f -ipath "*/$1/${DEFAULTFN:-$1}.$ext")
+    _quit_if_ambiguous "$found"
+    edit "$found"
+
+    # 3. Elseif it partially matches one file name by ignoring the lettercase, edit the only file.
+    found=$(find $base -d 1 -type f -iname "*$1*.$ext"; _ismd && find $base -d 2 -type f -ipath "*$1*.$ext")
+    _quit_if_ambiguous "$found"
+    edit "$found"
+
+    # 4. Elseif it matches one file content by ignoring the lettercase, edit the only file.
+    found=$(_ismd; find $base -maxdepth $(($??1:2)) -type f -iname "*.$ext" -exec grep -HFi "$1" {} \;)
+    _quit_if_ambiguous "$found"
+    edit "+/$1\c" "${found%%:*}"
+
+    # 5. Else, abort.
+    echo "No match found."
     exit 1
 }
 
 
-function migrate() {
-    scheme=${1%%://*}
-    src="$dir/$1.$sfx"
-    dst="$dir/$2.$sfx"
-    if [ "$scheme" = "http" -o "$scheme" = "https" ]; then
-        curl "$1" >> "$dst"
-    elif [ -e "$1" ]; then
-        cat "$1" >> "$dst"
-    elif [ ! -e "$src" ]; then
-        echo "$1 not found."
-        exit 1
-    elif [ -d "$2" ]; then
-        imgs=$(_md_img_dir)
-        if [ -n "$imgs" ]; then
-            local="$2/$IMG"
-            if [ ! -d "$local" ]; then
-                mkdir -p "$local"
-            fi
-            rep=""
-            for ln_src in $(_md_ln_srcs "$src")
-            do
-                img="$dir/$IMG/"$(basename "$ln_src")
-                if [ -e "$img" ]; then
-                    cp "$img" "$local" && rep="$rep -e ${ln_src/\//s|(})|(./$IMG/$(basename $ln_src))|g;"
-                fi
-            done
-            if [ -n "$rep" ]; then
-                sed $rep "$src" >> "$2/$1.$sfx"
-                exit 0
-            fi
-        fi
-        cat "$src" >> "$2/$1.$sfx"
+function create() {
+    if _ismd && [ "${1:(-1)}" = "/" ]; then
+        mkdir -p "$base/$1"
+        fn="$base/$1"$DEFAULTFN."$ext"
     else
-        cat "$src" >> "$dst"
+        fn="$base/$1.$ext"
+    fi
+    touch "$fn"
+    edit "$fn"
+}
+
+
+function remove() {
+    if _ismd && [ "${1:(-1)}" = "/" -o -e "$base/$1/${DEFAULTFN:-$1}.$ext" ]; then
+        rm -r "$base/$1"
+    else
+        rm "$base/$1.$ext"
     fi
 }
 
@@ -253,10 +328,10 @@ case $# in
         esac;;
     2)
         case $1 in 
-            +) edit "$dir/$2.$sfx";;
-            -) rm "$dir/$2.$sfx";;
+            +) create "$2";;
+            -) remove "$2";;
             =) git_sync "$2";;
-            *) migrate "$1" "$2";;
+            *) append "$1" "$2";;
         esac;;
     *) help; exit 1;;
 esac
