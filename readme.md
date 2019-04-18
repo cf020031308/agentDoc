@@ -30,16 +30,24 @@ agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
     agentDoc -h
         help
 
+### About Default Doc
+
+agentDoc guesses the filename if not provided.
+
+When the managed folder is synced with Github Wiki, the default filename is 'home'.  
+When the managed folder is a git repository, the default filename is 'readme'.
+
 ### About Search
 
-When searching, agentDoc looks at the filenames and contents to pick the only file with its name or content exactly or partially matching the pattern, then opens it with `vim` for editing.
-In every search phase if the result contains multiple files, agentDoc prints them and quit immediately.
+When searching, `agentDoc` looks at the filenames and contents to pick the only file with its name or content exactly or partially matching the pattern, then opens it with `vim` for editing.
+
+In every search phase if the result contains multiple files, `agentDoc` prints them and quit immediately.
 
 ## INSTALLATION
 
-Put or link agentDoc as a copy into the folder where you hope to manage documents. Then name the copy as the extension of the managed documents, such as md or txt. It can also be hidden by being named as .md, .txt, etc.
+Put or link agentDoc as a copy into the folder where you hope to manage documents. Then name the copy as the extension of the managed documents, such as `md` or `txt`. It can also be hidden by being named as `.md`, `.txt`, etc.
 
-And It's recommended to link the copy into $path such as /usr/local/bin/agentDoc to make it convenient to use.
+And It's recommended to link the copy into `$path` such as `/usr/local/bin/agentDoc` to make it convenient to use.
 
 ### Installation Examples
 
@@ -68,7 +76,7 @@ With different extensions and aliases agentDoc becomes:
 
 ## SPECIALITIES
 
-agentDoc leverages the power of Github <https://github.com> and markdown <https://guides.github.com/features/mastering-markdown/>.
+`agentDoc` leverages the power of Github <https://github.com> and markdown <https://guides.github.com/features/mastering-markdown/>.
 
 1. Properly fix referenced URLs when getting a remote markdown file
 2. Automatically manage images referenced in a local markdown file
@@ -76,13 +84,12 @@ agentDoc leverages the power of Github <https://github.com> and markdown <https:
     2. When appending, images referenced in the source file will be copied to the destination folder, and links converted as well.
     3. When syncing, images in the managed folder which are not referenced will be removed before pushing.
 3. Friendly with Github
-    1. Readme. When creating a doc with command `agentDoc + not-exist-dirname/` or output a doc with command `agentDoc docname not-exist-dirname/`, agentDoc knows you hope to create a new folder to keep the doc and all its assets within it so it just does, creating the new folder and name your doc as "not-exist-dirname/readme.agentDoc".
-    2. URLs of raw. When getting a remote file from Github Code or Github Wiki, agentDoc guesses the URL of the raw file according to the given URL.
-    3. Issue links. When getting a remote file from Github, GFM Issue links will be converted to normal links.
+    1. URLs of raw. When getting a remote file from Github or Github Wiki, `agentDoc` guesses the URL of the raw file according to the given URL.
+    2. Issue links. When getting a remote file from Github, GFM Issue links will be converted to normal links.
 
 ## EXIT STATUS
 
-The agentDoc utility exits 0 on success, and >0 if an error occurs.
+The `agentDoc` utility exits 0 on success, and >0 if an error occurs.
 
 ## SEE ALSO
 

@@ -35,16 +35,24 @@ agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
     $ad -h
         help
 
+### About Default Doc
+
+agentDoc guesses the filename if not provided.
+
+When the managed folder is synced with Github Wiki, the default filename is 'home'.  
+When the managed folder is a git repository, the default filename is 'readme'.
+
 ### About Search
 
-When searching, $ad looks at the filenames and contents to pick the only file with its name or content exactly or partially matching the pattern, then opens it with \`vim\` for editing.
-In every search phase if the result contains multiple files, $ad prints them and quit immediately.
+When searching, \`$ad\` looks at the filenames and contents to pick the only file with its name or content exactly or partially matching the pattern, then opens it with \`vim\` for editing.
+
+In every search phase if the result contains multiple files, \`$ad\` prints them and quit immediately.
 
 ## INSTALLATION
 
-Put or link agentDoc as a copy into the folder where you hope to manage documents. Then name the copy as the extension of the managed documents, such as md or txt. It can also be hidden by being named as .md, .txt, etc.
+Put or link agentDoc as a copy into the folder where you hope to manage documents. Then name the copy as the extension of the managed documents, such as \`md\` or \`txt\`. It can also be hidden by being named as \`.md\`, \`.txt\`, etc.
 
-And It's recommended to link the copy into \$path such as /usr/local/bin/$ad to make it convenient to use.
+And It's recommended to link the copy into \`\$path\` such as \`/usr/local/bin/$ad\` to make it convenient to use.
 
 ### Installation Examples
 
@@ -73,7 +81,7 @@ With different extensions and aliases agentDoc becomes:
 
 ## SPECIALITIES
 
-$ad leverages the power of Github <https://github.com> and markdown <https://guides.github.com/features/mastering-markdown/>.
+\`$ad\` leverages the power of Github <https://github.com> and markdown <https://guides.github.com/features/mastering-markdown/>.
 
 1. Properly fix referenced URLs when getting a remote markdown file
 2. Automatically manage images referenced in a local markdown file
@@ -81,13 +89,12 @@ $ad leverages the power of Github <https://github.com> and markdown <https://gui
     2. When appending, images referenced in the source file will be copied to the destination folder, and links converted as well.
     3. When syncing, images in the managed folder which are not referenced will be removed before pushing.
 3. Friendly with Github
-    1. Readme. When creating a doc with command \`$ad + not-exist-dirname/\` or output a doc with command \`$ad docname not-exist-dirname/\`, $ad knows you hope to create a new folder to keep the doc and all its assets within it so it just does, creating the new folder and name your doc as "not-exist-dirname/readme.$ext".
-    2. URLs of raw. When getting a remote file from Github Code or Github Wiki, $ad guesses the URL of the raw file according to the given URL.
-    3. Issue links. When getting a remote file from Github, GFM Issue links will be converted to normal links.
+    1. URLs of raw. When getting a remote file from Github or Github Wiki, \`$ad\` guesses the URL of the raw file according to the given URL.
+    2. Issue links. When getting a remote file from Github, GFM Issue links will be converted to normal links.
 
 ## EXIT STATUS
 
-The $ad utility exits 0 on success, and >0 if an error occurs.
+The \`$ad\` utility exits 0 on success, and >0 if an error occurs.
 
 ## SEE ALSO
 
@@ -101,7 +108,7 @@ USAGE
 }
 
 
-DEFAULTFN="readme"
+defaultfn=""
 ad="$(basename $0)"
 fp="$0"
 if [ -L "$fp" ]; then
@@ -115,6 +122,26 @@ base="$(cd $(dirname $fp); pwd)"
 function _ismd() {
     test "$ext" = "md" -o "$ext" = "markdown"
 }
+
+
+function _get_repo() {
+    _pwd="$PWD"
+    cd "$1"
+    git remote get-url --push origin 2>&- | head -n 1 | grep -o "\w*/.*"
+    cd "$_pwd"
+}
+
+
+if [ ! -n "$defaultfn" ]; then
+    repo=$(_get_repo "$base")
+    if [ -n "$repo" ]; then
+        if [ "${repo:(-9)}" = ".wiki.git" ]; then
+            defaultfn="home"
+        else
+            defaultfn="readme"
+        fi
+    fi
+fi
 
 
 function _mdimg_redir() {
@@ -174,9 +201,9 @@ function append() {
         if [ "${2:(-1)}" != "/" ]; then
             dst="$2.$ext"
         elif [ "${2/\//}" != "${2//\//}" ]; then
-            dst="${2}${DEFAULTFN:-$1}.$ext"
+            dst="${2}${defaultfn:-$1}.$ext"
         else
-            dst="$base/$2${DEFAULTFN:-$1}.$ext"
+            dst="$base/$2${defaultfn:-$1}.$ext"
         fi
         mkdir -p "$(dirname $dst)"
     fi
@@ -193,7 +220,7 @@ function append() {
                         src="${src/\/blob\///raw/}"
                         dir="$(dirname $src)/";;
                     */tree/*)
-                        src="${src/\/tree\///raw/}/${DEFAULTFN:-readme}.$ext"
+                        src="${src/\/tree\///raw/}/${defaultfn:-readme}.$ext"
                         dir="$(dirname $src)/";;
                     */wiki/*)
                         dir="$(dirname $src)/"
@@ -204,7 +231,7 @@ function append() {
                         src="${src#https://github.com/}"
                         src="https://raw.githubusercontent.com/wiki/${src%*/wiki}/Home.$ext";;
                     *)
-                        src="$src/raw/master/${DEFAULTFN:-readme}.$ext"
+                        src="$src/raw/master/${defaultfn:-readme}.$ext"
                         dir="$(dirname $src)/"
                 esac
                 # Convert Issue links for Github: https://guides.github.com/features/mastering-markdown/
@@ -223,8 +250,8 @@ function append() {
             src="$1"
         elif [ -f "$base/$1.$ext" ]; then
             src="$base/$1.$ext"
-        elif _ismd && [ -f "$base/$1/${DEFAULTFN:-$1}.$ext" ]; then
-            src="$base/$1/${DEFAULTFN:-$1}.$ext"
+        elif _ismd && [ -f "$base/$1/${defaultfn:-$1}.$ext" ]; then
+            src="$base/$1/${defaultfn:-$1}.$ext"
         else
             echo "$1 not found."
             exit 1
@@ -239,7 +266,7 @@ function append() {
 
 
 function edit_default() {
-    fn="$base/$ad.$ext"
+    fn="$base/${defaultfn:-$ad}.$ext"
     if [ ! -e "$fn" ]; then
         help > "$fn"
     fi
@@ -273,10 +300,10 @@ function search_to_edit() {
 
     # 1. If it exactly matches the file name, edit the file.
     edit "$base/$1.$ext"
-    _ismd && edit "$base/$1/${DEFAULTFN:-$1}.$ext"
+    _ismd && edit "$base/$1/${defaultfn:-$1}.$ext"
 
     # 2. Elseif it matches one file name by ignoring the lettercase, edit the only file.
-    found=$(find $base -d 1 -type f -iname "$1.$ext"; _ismd && find $base -d 2 -type f -ipath "*/$1/${DEFAULTFN:-$1}.$ext")
+    found=$(find $base -d 1 -type f -iname "$1.$ext"; _ismd && find $base -d 2 -type f -ipath "*/$1/${defaultfn:-$1}.$ext")
     _quit_if_ambiguous "$found"
     edit "$found"
 
@@ -299,7 +326,7 @@ function search_to_edit() {
 function create() {
     if _ismd && [ "${1:(-1)}" = "/" ]; then
         mkdir -p "$base/$1"
-        fn="$base/$1"$DEFAULTFN."$ext"
+        fn="$base/${1}${defaultfn:-${1:0:${#1}-1}}.$ext"
     else
         fn="$base/$1.$ext"
     fi
@@ -309,7 +336,7 @@ function create() {
 
 
 function remove() {
-    if _ismd && [ "${1:(-1)}" = "/" -o -e "$base/$1/${DEFAULTFN:-$1}.$ext" ]; then
+    if _ismd && [ "${1:(-1)}" = "/" -o -e "$base/$1/${defaultfn:-$1}.$ext" ]; then
         rm -r "$base/$1"
     else
         rm "$base/$1.$ext"
