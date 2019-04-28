@@ -3,7 +3,7 @@
 
 function help() {
     cat <<USAGE
-# AGENTDOC 1                 2019-04-13                  2.0
+# AGENTDOC 1                 2019-04-28                  1.5
 
 ## NAME
 
@@ -28,8 +28,10 @@ agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
         delete a doc
     $ad pattern
         search a doc to edit
-    $ad URL/filepath1/docname1 path2/docname2
-        append a page/file/doc to an internal doc or an external file, or output it to a directory
+    $ad URL/filepath1/docname1 filepath2/docname2
+        append a page/file/doc to an internal doc or an external file
+    $ad URL/filepath1/docname1 dirpath
+        export a page/file/doc to a directory
     $ad = [comment]
         sync with git
     $ad -h
@@ -44,11 +46,14 @@ When the managed folder is a git repository, the default filename is 'readme'.
 
 ### About Search
 
-When searching, \`$ad\` looks at the filenames and contents to pick the only file with its name or content exactly or partially matching the pattern, then opens it with \`vim\` for editing.
+When searching, \`$ad\` looks at the filenames and contents to pick the only file with its name or content exactly or partially matching the pattern, then opens it for editing.
 
 In every search phase if the result contains multiple files, \`$ad\` prints them and quit immediately.
 
 ## INSTALLATION
+
+\`curl "https://raw.githubusercontent.com/cf020031308/agentDoc/master/agentDoc" -o /usr/local/bin/agentDoc\`  
+\`chmod 755 /usr/local/bin/agentDoc\`
 
 Put or link agentDoc as a copy into the folder where you hope to manage documents. Then name the copy as the extension of the managed documents, such as \`md\` or \`txt\`. It can also be hidden by being named as \`.md\`, \`.txt\`, etc.
 
@@ -98,7 +103,7 @@ The \`$ad\` utility exits 0 on success, and >0 if an error occurs.
 
 ## SEE ALSO
 
-vim(1), git(1), curl(1)
+git(1), curl(1)
 
 ## AUTHOR
 
@@ -127,7 +132,7 @@ function _ismd() {
 function _get_repo() {
     _pwd="$PWD"
     cd "$1"
-    git remote get-url --push origin 2>&- | head -n 1 | grep -o "\w*/.*"
+    git remote get-url --push origin 2>&- | sed q | grep -o "\w*/.*"
     cd "$_pwd"
 }
 
@@ -183,7 +188,11 @@ function _mdimg_redir() {
 function edit() {
     fn="${@:$#}"
     if [ -e "$fn" ]; then
-        vim $@
+        if [ "$EDITOR" = "vi" -o "$EDITOR" = "vim" -o "$EDITOR" = "" ]; then
+            vim $@
+        else
+            $EDITOR "$fn"
+        fi
         _ismd && _mdimg_redir "$fn" "$fn" "$PWD"
         exit 0
     fi
@@ -211,40 +220,41 @@ function append() {
     host=$(expr "$1" : "\(https\{0,1\}://[^/]*\)/")
     if [ -n "$host" ]; then
         src="$1"
-        rpl=""
+        url="$src"
+        rpl=()
+        i=0
         if _ismd; then
+            dir="$(dirname $src)/"
             if [ "$host" = "https://github.com" ]; then
                 # Guess markdown file's real URL if it's not given directly
                 case "$src" in
                     */blob/*)
-                        src="${src/\/blob\///raw/}"
-                        dir="$(dirname $src)/";;
+                        url="${src/\/blob\///raw/}";;
                     */tree/*)
-                        src="${src/\/tree\///raw/}/${defaultfn:-readme}.$ext"
-                        dir="$(dirname $src)/";;
+                        url="${src/\/tree\///raw/}/${defaultfn:-readme}.$ext";;
                     */wiki/*)
-                        dir="$(dirname $src)/"
-                        src="${src#https://github.com/}"
-                        src="https://raw.githubusercontent.com/wiki/${src/\/wiki\///}.$ext";;
+                        url="${src#https://github.com/}"
+                        url="https://raw.githubusercontent.com/wiki/${url/\/wiki\///}.$ext";;
                     */wiki)
-                        dir="$src/"
-                        src="${src#https://github.com/}"
-                        src="https://raw.githubusercontent.com/wiki/${src%*/wiki}/Home.$ext";;
+                        url="${src#https://github.com/}"
+                        url="https://raw.githubusercontent.com/wiki/${url%*/wiki}/Home.$ext";;
                     *)
-                        src="$src/raw/master/${defaultfn:-readme}.$ext"
-                        dir="$(dirname $src)/"
+                        url="$src/raw/master/${defaultfn:-readme}.$ext"
                 esac
-                # Convert Issue links for Github: https://guides.github.com/features/mastering-markdown/
-                rpl="s [[:<:]]([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)#([0-9]+) [&](https://github.com/\1/issues/\2) g"
+                # Convert issues/commits/links for Github: https://guides.github.com/features/mastering-markdown/
+                rpl[i++]="-e s (^|[^([])[[:<:]]([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)#([0-9]+)[[:>:]] \1[\2#\3](https://github.com/\2/issues/\3) g"
+                rpl[i++]="-e s (^|[^([])[[:<:]]([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)@([a-z0-9]{7})([a-z0-9]{0,33})[[:>:]] \1[\2@\3](https://github.com/\2/commit/\3\4) g"
+                rpl[i++]="-e s (^|[^([])(https?://[^[:space:]]*) \1[\2](\2) g"
             fi
             # Convert links from relative to absolute
-            rpl="s \]\(((https?://[^)]+)|(/[^)]+)|([^)]+))\) ](\2))$host\3))$dir\4) g
-            s ))$dir\) ) g
-            s ))$host\) ) g
-            s ]\(\)\) ]( g
-            $rpl"
+            rpl[i++]="-e s \]\(((https?://[^)]+)|(/[^)]+)|(#[^)]+)|([^)]+))\) ](\2))$host\3))$src\4))$dir\5) g"
+            rpl[i++]="-e s ))$src\) ) g"
+            rpl[i++]="-e s ))$dir\) ) g"
+            rpl[i++]="-e s ))$host\) ) g"
+            rpl[i++]="-e s ]\(\)\) ]( g"
+            rpl[i++]="-e s ]\(\) ]($src) g"
         fi
-        curl -L "$src" | sed -E "$rpl" >> "$dst"
+        curl -L "$url" | sed -E "${rpl[@]}" >> "$dst"
     else
         if [ -f "$1" ]; then
             src="$1"
@@ -293,7 +303,7 @@ function git_sync() {
 function search_to_edit() {
     function _quit_if_ambiguous {
         if [ $(echo "$@" | wc -l) -gt 1 ]; then
-            echo "$@" | sed "s $base/  "
+            echo "$@" | sed "s $base/  ;s \.$ext  "
             exit 1
         fi
     }
