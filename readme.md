@@ -1,4 +1,4 @@
-# AGENTDOC 1                 2019-04-13                  2.0
+# AGENTDOC 1                 2019-04-28                  1.5
 
 ## NAME
 
@@ -23,8 +23,10 @@ agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
         delete a doc
     agentDoc pattern
         search a doc to edit
-    agentDoc URL/filepath1/docname1 path2/docname2
-        append a page/file/doc to an internal doc or an external file, or output it to a directory
+    agentDoc URL/filepath1/docname1 filepath2/docname2
+        append a page/file/doc to an internal doc or an external file
+    agentDoc URL/filepath1/docname1 dirpath
+        export a page/file/doc to a directory
     agentDoc = [comment]
         sync with git
     agentDoc -h
@@ -39,11 +41,14 @@ When the managed folder is a git repository, the default filename is 'readme'.
 
 ### About Search
 
-When searching, `agentDoc` looks at the filenames and contents to pick the only file with its name or content exactly or partially matching the pattern, then opens it with `vim` for editing.
+When searching, `agentDoc` looks at the filenames and contents to pick the only file with its name or content exactly or partially matching the pattern, then opens it for editing.
 
 In every search phase if the result contains multiple files, `agentDoc` prints them and quit immediately.
 
 ## INSTALLATION
+
+`curl "https://raw.githubusercontent.com/cf020031308/agentDoc/master/agentDoc" -o /usr/local/bin/agentDoc`  
+`chmod 755 /usr/local/bin/agentDoc`
 
 Put or link agentDoc as a copy into the folder where you hope to manage documents. Then name the copy as the extension of the managed documents, such as `md` or `txt`. It can also be hidden by being named as `.md`, `.txt`, etc.
 
@@ -93,7 +98,7 @@ The `agentDoc` utility exits 0 on success, and >0 if an error occurs.
 
 ## SEE ALSO
 
-vim(1), git(1), curl(1)
+git(1), curl(1)
 
 ## AUTHOR
 
