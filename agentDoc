@@ -3,7 +3,7 @@
 
 function help() {
     cat <<USAGE
-# AGENTDOC 1                 2019-04-28                  1.5
+# AGENTDOC 1                 2020-06-23                  1.6
 
 ## NAME
 
@@ -19,7 +19,7 @@ agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
 ## COMMANDS
 
     $ad
-        edit the default doc
+        review the most unread doc
     $ad .
         list all docs
     $ad + docname
@@ -43,6 +43,19 @@ agentDoc guesses the filename if not provided.
 
 When the managed folder is synced with Github Wiki, the default filename is 'home'.  
 When the managed folder is a git repository, the default filename is 'readme'.
+
+### About Review
+
+When \`$ad\` is called without any arguments, it searches through the managed directory for the most unread document and open it.
+
+With this feature you may recurrently review your documents and 
+
+* remember everything in your knowledge base
+* keep your notes neat and useful
+
+The score to evaluate how 'unread' a document is = ((now - last_access_time) / (1 + last_access_time - last_change_time) - 1) * doc_size
+
+If all the scores are less than 0, another score0 = (now - last_access_time) / (1 + last_access_time - last_change_time) is used.
 
 ### About Search
 
@@ -200,19 +213,21 @@ function edit() {
 
 
 function append() {
+    srcfn=$(basename $1)
+    srcfn=${srcfn%.$ext}
     if [ -d "$2" ]; then
-        dst="${2}/${1}.$ext"
+        dst="${2}/${srcfn}.$ext"
     elif [ -f "$2" ]; then
         dst="$2"
     elif [ "${2/\//}" = "$2" ]; then
-        dst="$base/$2.$ext"
+        dst="$base/${2%.$ext}.$ext"
     else
         if [ "${2:(-1)}" != "/" ]; then
-            dst="$2.$ext"
+            dst="${2%.$ext}.$ext"
         elif [ "${2/\//}" != "${2//\//}" ]; then
-            dst="${2}${defaultfn:-$1}.$ext"
+            dst="${2}${defaultfn:-$srcfn}.$ext"
         else
-            dst="$base/$2${defaultfn:-$1}.$ext"
+            dst="$base/$2${defaultfn:-$srcfn}.$ext"
         fi
         mkdir -p "$(dirname $dst)"
     fi
@@ -247,6 +262,7 @@ function append() {
                 rpl[i++]="-e s (^|[^([])(https?://[^[:space:]]*) \1[\2](\2) g"
             fi
             # Convert links from relative to absolute
+            # FIXME: keep in-page anchor as it is
             rpl[i++]="-e s \]\(((https?://[^)]+)|(/[^)]+)|(#[^)]+)|([^)]+))\) ](\2))$host\3))$src\4))$dir\5) g"
             rpl[i++]="-e s ))$src\) ) g"
             rpl[i++]="-e s ))$dir\) ) g"
@@ -258,8 +274,8 @@ function append() {
     else
         if [ -f "$1" ]; then
             src="$1"
-        elif [ -f "$base/$1.$ext" ]; then
-            src="$base/$1.$ext"
+        elif [ -f "$base/${1%.$ext}.$ext" ]; then
+            src="$base/${1%.$ext}.$ext"
         elif _ismd && [ -f "$base/$1/${defaultfn:-$1}.$ext" ]; then
             src="$base/$1/${defaultfn:-$1}.$ext"
         else
@@ -283,9 +299,28 @@ function edit_default() {
     edit "$fn"
 }
 
+function review() {
+    now=$(date +%s)
+    fn=$(find "$base" -type f -iname "*.$ext" -exec stat -f "$now %a %m %z %N" {} \; | awk '
+    BEGIN {
+        max0 = 0; name0 = "";
+        max = 0; name = "";
+    }
+    {
+        score0 = ($1 - $2) / (1 + $2 - $3)
+        if (score0 > max0) { max0 = score0; name0 = $5; }
+        score = (score0 - 1) * $4;
+        if (score > max) { max = score; name = $5; }
+    }
+    END {
+        print(name ? name : name0);
+    }')
+    edit "$fn"
+}
+
 
 function list_docs() {
-    cd "$base" && ls *.$ext && git status . 2>&-
+    cd "$base" && (ls *.$ext || find . -type f -name "*.$ext") && git status . 2>&-
 }
 
 
@@ -303,7 +338,7 @@ function git_sync() {
 function search_to_edit() {
     function _quit_if_ambiguous {
         if [ $(echo "$@" | wc -l) -gt 1 ]; then
-            echo "$@" | sed "s $base/  ;s \.$ext  "
+            echo "$@" | sed "s $base/  ;s \.$ext  " | sort | uniq -c
             exit 1
         fi
     }
@@ -355,7 +390,7 @@ function remove() {
 
 
 case $# in
-    0) edit_default;;
+    0) review;;
     1)
         case $1 in
             -h) help;;

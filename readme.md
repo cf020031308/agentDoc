@@ -1,4 +1,4 @@
-# AGENTDOC 1                 2019-04-28                  1.5
+# AGENTDOC 1                 2020-06-23                  1.6
 
 ## NAME
 
@@ -14,7 +14,7 @@ agentDoc [*SOURCE* | *DOCNAME*] [*DESTINATION* | *DOCNAME*]
 ## COMMANDS
 
     agentDoc
-        edit the default doc
+        review the most unread doc
     agentDoc .
         list all docs
     agentDoc + docname
@@ -38,6 +38,19 @@ agentDoc guesses the filename if not provided.
 
 When the managed folder is synced with Github Wiki, the default filename is 'home'.  
 When the managed folder is a git repository, the default filename is 'readme'.
+
+### About Review
+
+When `agentDoc` is called without any arguments, it searches through the managed directory for the most unread document and open it.
+
+With this feature you may recurrently review your documents and 
+
+* remember everything in your knowledge base
+* keep your notes neat and useful
+
+The score to evaluate how 'unread' a document is = ((now - last_access_time) / (1 + last_access_time - last_change_time) - 1) * doc_size
+
+If all the scores are less than 0, another score0 = (now - last_access_time) / (1 + last_access_time - last_change_time) is used.
 
 ### About Search
 
