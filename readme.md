@@ -1,3 +1,10 @@
+# Deprecated
+
+For details please see [*The Reason I Created agentDoc and Why You Don't Need it*](https://cf020031308.github.io/blog/the-reason-i-created-agentdoc-and-why-you-don-t-need-it)
+In short, I found [fzf](https://github.com/junegunn/fzf) and [fasd](https://github.com/clvv/fasd) powerful. There's no need to make another wheel unless for study purpose.
+
+But if you still think `agentDoc` better in some ways, enjoy!
+
 # AGENTDOC 1                 2020-06-23                  1.6
 
 ## NAME
