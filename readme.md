@@ -1,9 +1,4 @@
-# Deprecated
-
-For details please see [*The Reason I Created agentDoc and Why You Don't Need it*](https://cf020031308.github.io/blog/the-reason-i-created-agentdoc-and-why-you-don-t-need-it)
-In short, I found [fzf](https://github.com/junegunn/fzf) and [fasd](https://github.com/clvv/fasd) powerful. There's no need to make another wheel unless for study purpose.
-
-But if you still think `agentDoc` better in some ways, enjoy!
+# agentDoc is delicoous :) @20260318
 
 # AGENTDOC 1                 2020-06-23                  1.6
 
@@ -77,7 +72,7 @@ And It's recommended to link the copy into `$path` such as `/usr/local/bin/agent
 ### Installation Examples
 
 `ln -sf agentDoc /Documents/cheatsheet/.md`  
-`ln -sf /Document/cheatsheet/md /usr/local/bin/cheat`  
+`ln -sf /Document/cheatsheet/.md /usr/local/bin/cheat`  
   Manage cheatsheet in markdown format with command `cheat`
 
 `cp agentDoc /Documents/myproject.wiki.git/md`  
